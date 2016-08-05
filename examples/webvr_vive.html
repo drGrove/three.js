@@ -349,7 +349,56 @@
 				return n;
 			}
 
-			// button events
+      /**
+       * Releases an object from a controller
+       * @param {ViveController} controller - the controller
+       */
+      function releaseObject(controller) {
+        if (controller.heldObject) {
+          THREE.SceneUtils.detach(controller.heldObject, controller, scene);
+          THREE.SceneUtils.attach(controller.heldObject, scene, scene);
+          controller.heldObject = undefined;
+        }
+      }
+
+      /**
+       * Grab an object
+       * @param {ViveController} controller - vive controller instance
+       */
+      function grabObject(controller) {
+        var cast = new THREE.Raycaster();
+        cast.set(controller.getPosition(), controller.forward());
+        var intersects = cast.intersectObjects(scene.children, true);
+        for (var i = 0; i < intersects.length; i++) {
+          var curr = intersects[i];
+          if (curr && curr.object.name !== "ignore") {
+            if (curr.object.name === "obj_menu_item") {
+              if (curr.object.parent.name === "obj_menu_item") // fucking hack fuck -conner
+                controller.heldObject = cloneObjectFromMenu(curr.object.parent);
+              else
+                controller.heldObject = cloneObjectFromMenu(curr.object);
+              break;
+            }
+            if (curr.object.parent != scene)
+              controller.heldObject = curr.object.parent;
+            else
+              controller.heldObject = curr.object;
+            THREE.SceneUtils.detach(controller.heldObject, controller.heldObject.parent, scene);
+            THREE.SceneUtils.attach(controller.heldObject, scene, controller);
+            break;
+          }
+        }
+      }
+
+      /**
+       * Toggle Menu
+       */
+      function toggleMenu() {
+        menu.visible = !menu.visible;
+      }
+
+
+      // button events
 			var axisPrev = 0;
 			var handleButtonTouched = function(e) {
 				switch(e.detail.controller_id) {
@@ -371,44 +420,6 @@
 												n = .1;
 											}
 											controller1.heldObject.scale.set(n, n, n);
-											/*
-											var previous = controller1.heldObject.scale.x
-											var axes = controller1.trackpad.getAxes();
-											var axesDelta;
-											var scalar;
-											if (axisPrev < axes.y) {
-												axesDelta = axisPrev + axes.y
-											} else {
-												axesDelta = axisPrev - axes.y
-											}
-											axisPrev = axes.y;
-											*/
-											/*
-											console.log('Axis Delta: ', axesDelta)
-											axisPrev = axes.y;
-											if (previous > axesDelta) {
-												delta = previous - (axesDelta * CONST);
-											} else {
-												delta = previous + (axesDelta * CONST);
-											}
-											console.log('DELTA:', delta)
-											if (delta <= 0.1) {
-												delta = 0.1
-											}
-											*/
-											/*
-											if (axesDelta > 0) {
-												scalar = previous + (previous * .1)
-											} else {
-												scalar = previous - (previous * .1)
-											}
-											if (scalar <= 0.1) {
-												scalar = 0.1
-											}
-											console.log('scalar: ', scalar);
-											console.log('axesDelta', axesDelta)
-											controller1.heldObject.scale.set(scalar, scalar, scalar);
-											*/
 										}
 									}, 100);
 									var handleTrackpadUntouched = function(e) {
@@ -432,36 +443,14 @@
 
 			window.addEventListener('gamepadButtonTouched', handleButtonTouched);
 
+
 			var handleButtonClicked = function(e) {
 				console.log('Button Event: ', e);
 				switch (e.detail.controller_id) {
 					case controller1.id:
 						switch (e.detail.button_id) {
 							case controller1.BUTTONS.TRIGGER:
-								var cast = new THREE.Raycaster();
-								cast.set(controller1.getPosition(), controller1.forward());
-								var intersects = cast.intersectObjects(scene.children, true);
-								for (var i = 0; i < intersects.length; i++) {
-									var curr = intersects[i];
-									if (curr && curr.object.name !== "ignore") {
-										if (curr.object.name === "obj_menu_item") {
-											if (curr.object.parent.name === "obj_menu_item") // fucking hack fuck -conner
-												controller1.heldObject = cloneObjectFromMenu(curr.object.parent);
-											else
-												controller1.heldObject = cloneObjectFromMenu(curr.object);
-											break;
-										}
-										if (curr.object.parent != scene)
-											controller1.heldObject = curr.object.parent;
-										else
-											controller1.heldObject = curr.object;
-										THREE.SceneUtils.detach(controller1.heldObject, controller1.heldObject.parent, scene);
-										THREE.SceneUtils.attach(controller1.heldObject, scene, controller1);
-										break;
-									}
-
-
-								}
+                grabObject(controller1);
 								break;
 							case 2:
 								break;
@@ -476,7 +465,7 @@
 							case 2:
 								break;
 							case controller2.BUTTONS.MENU:
-								menu.visible = !menu.visible;
+                toggleMenu();
 								break;
 						}
 						break;
@@ -485,19 +474,16 @@
 
 			window.addEventListener('gamepadButtonPressed', handleButtonClicked);
 
+
 			var handleButtonReleased = function(e) {
 				console.log('Button released: ', e);
 				switch (e.detail.controller_id) {
-				case controller1.id:
-					if (controller1.heldObject) {
-						THREE.SceneUtils.detach(controller1.heldObject, controller1, scene);
-						THREE.SceneUtils.attach(controller1.heldObject, scene, scene);
-						controller1.heldObject = undefined;
-					}
-
-				case controller2.id:
+          case controller1.id:
+            releaseObject(controller1);
+            break;
+          case controller2.id:
+            break;
 				}
-
 			};
 
 			window.addEventListener('gamepadButtonReleased', handleButtonReleased);
@@ -505,7 +491,6 @@
 			var arrowHelper;
 
 			function render() {
-
 				controls.update();
 
 				// todo make function
@@ -527,40 +512,28 @@
 				}
 
 				for ( var i = 0; i < room.children.length; i ++ ) {
-
 					var cube = room.children[ i ];
-
 					if ( cube.geometry instanceof THREE.BoxGeometry === false ) continue;
-
 					// cube.position.add( cube.userData.velocity );
-
 					if ( cube.position.x < - 3 || cube.position.x > 3 ) {
-
 						cube.position.x = THREE.Math.clamp( cube.position.x, - 3, 3 );
 						cube.userData.velocity.x = - cube.userData.velocity.x;
-
 					}
 
 					if ( cube.position.y < - 3 || cube.position.y > 3 ) {
-
 						cube.position.y = THREE.Math.clamp( cube.position.y, - 3, 3 );
 						cube.userData.velocity.y = - cube.userData.velocity.y;
-
 					}
 
 					if ( cube.position.z < - 3 || cube.position.z > 3 ) {
-
 						cube.position.z = THREE.Math.clamp( cube.position.z, - 3, 3 );
 						cube.userData.velocity.z = - cube.userData.velocity.z;
-
 					}
 
 					cube.rotation.x += 0.01;
-
 				}
 
 				effect.render( scene, camera );
-
 			}
 
 		</script>
