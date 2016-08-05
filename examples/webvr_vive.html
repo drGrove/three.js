@@ -1,7 +1,7 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 	<head>
-		<title>three.js webvr - htc vive</title>
+		<title>three.js webvr - cubes</title>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 		<style>
@@ -27,23 +27,29 @@
 		<script src="js/ViveController.js"></script>
 
 		<script src="js/loaders/OBJLoader.js"></script>
-
+		<!--script>
+			// A dev logger tool that overrides console.log
+			var logger = {};
+			logger.log = [];
+			var originalLog = console.log;
+			console.log = function(txt) {
+				logger.log.append(arguments);
+				originallog.apply(console, arguments);
+			}
+		</script-->
 		<script>
 
 			if ( WEBVR.isLatestAvailable() === false ) {
-
 				document.body.appendChild( WEBVR.getMessage() );
-
 			}
 
 			//
-
-			var clock = new THREE.Clock();
 
 			var container;
 			var camera, scene, renderer;
 			var effect, controls;
 			var controller1, controller2;
+			var pointer, menu;
 
 			var room;
 
@@ -68,14 +74,17 @@
 				camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.1, 10 );
 				scene.add( camera );
 
+/*
 				room = new THREE.Mesh(
-					new THREE.BoxGeometry( 6, 6, 6, 8, 8, 8 ),
-					new THREE.MeshBasicMaterial( { color: 0x404040, wireframe: true } )
+					new THREE.BoxGeometry( 6, 6, 6, 10, 10, 10 ),
+					new THREE.MeshBasicMaterial( { color: 0x202020, wireframe: true } )
 				);
+				*/
+				room = new THREE.Object3D();
 				room.position.y = 3;
-				scene.add( room );
+				//scene.add( room );
 
-				scene.add( new THREE.HemisphereLight( 0x606060, 0x404040 ) );
+				scene.add( new THREE.HemisphereLight( 0x404020, 0x202040, 0.5 ) );
 
 				var light = new THREE.DirectionalLight( 0xffffff );
 				light.position.set( 1, 1, 1 ).normalize();
@@ -104,28 +113,28 @@
 					object.userData.velocity.y = Math.random() * 0.01 - 0.005;
 					object.userData.velocity.z = Math.random() * 0.01 - 0.005;
 
-					room.add( object );
+					object.interactable = true;
+					//scene.add( object );
 
 				}
 
 				var material = new THREE.MeshStandardMaterial();
 
+				var path = 'models/obj/cerberus/';
 				var loader = new THREE.OBJLoader();
-				loader.setPath( 'models/obj/cerberus/' );
-				loader.load( 'Cerberus.obj', function ( group ) {
+				loader.load( path + 'Cerberus.obj', function ( group ) {
 
 					// var material = new THREE.MeshBasicMaterial( { wireframe: true } );
 
 					var loader = new THREE.TextureLoader();
-					loader.setPath( 'models/obj/cerberus/' );
 
 					material.roughness = 1;
 					material.metalness = 1;
 
-					material.map = loader.load( 'Cerberus_A.jpg' );
-					material.roughnessMap = loader.load( 'Cerberus_R.jpg' );
-					material.metalnessMap = loader.load( 'Cerberus_M.jpg' );
-					material.normalMap = loader.load( 'Cerberus_N.jpg' );
+					material.map = loader.load( path + 'Cerberus_A.jpg' );
+					material.roughnessMap = loader.load( path + 'Cerberus_R.jpg' );
+					material.metalnessMap = loader.load( path + 'Cerberus_M.jpg' );
+					material.normalMap = loader.load( path + 'Cerberus_N.jpg' );
 
 					material.map.wrapS = THREE.RepeatWrapping;
 					material.roughnessMap.wrapS = THREE.RepeatWrapping;
@@ -133,18 +142,14 @@
 					material.normalMap.wrapS = THREE.RepeatWrapping;
 
 					group.traverse( function ( child ) {
-
 						if ( child instanceof THREE.Mesh ) {
-
 							child.material = material;
-
 						}
-
 					} );
 
 					group.position.y = - 2;
 					group.rotation.y = - Math.PI / 2;
-					room.add( group );
+					//room.add( group );
 
 				} );
 
@@ -159,7 +164,7 @@
 				//
 
 				renderer = new THREE.WebGLRenderer( { antialias: true } );
-				renderer.setClearColor( 0x505050 );
+				renderer.setClearColor( 0x101010 );
 				renderer.setPixelRatio( window.devicePixelRatio );
 				renderer.setSize( window.innerWidth, window.innerHeight );
 				renderer.sortObjects = false;
@@ -178,59 +183,348 @@
 				controller2.standingMatrix = controls.getStandingMatrix();
 				scene.add( controller2 );
 
+				var vivePath = 'models/obj/vive-controller/';
 				var loader = new THREE.OBJLoader();
-				loader.setPath( 'models/obj/vive-controller/' );
-				loader.load( 'vr_controller_vive_1_5.obj', function ( object ) {
+				loader.load( vivePath + 'vr_controller_vive_1_5.obj', function ( object ) {
 
 					var loader = new THREE.TextureLoader();
-					loader.setPath( 'models/obj/vive-controller/' );
 
-					var controller = object.children[ 0 ];
-					controller.material.map = loader.load( 'onepointfive_texture.png' );
-					controller.material.specularMap = loader.load( 'onepointfive_spec.png' );
+					var controller = object.children[0];
+					controller.material.map = loader.load( vivePath + 'onepointfive_texture.png' );
+					controller.material.specularMap = loader.load( vivePath + 'onepointfive_spec.png' );
 
+					controller.name = "ignore";
 					controller1.add( object.clone() );
 					controller2.add( object.clone() );
 
 				} );
 
+				var len = 10;
+
+				var log_tex
+				//create image
+				var bitmap = document.createElement('canvas');
+				var g = bitmap.getContext('2d');
+				bitmap.width = 100;
+				bitmap.height = 100;
+				g.font = 'Bold 20px Arial';
+
+				g.fillStyle = 'white';
+				g.fillText("swagswagswagswagswag", 0, 20);
+				g.strokeStyle = 'black';
+				g.strokeText("swagswagswagswagswag", 0, 20);
+
+				// canvas contents will be used for a texture
+				var texture = new THREE.Texture(bitmap)
+				texture.needsUpdate = true;
+				var log_out  = new THREE.Mesh(
+					new THREE.BoxGeometry(.2,.002,.2),
+					new THREE.MeshBasicMaterial({color: 0x666666, map: texture})
+				);
+				log_out.position.setY(-.03)
+				//controller1.add(log_out);
+
+				var size = 10;
+				var step = 1;
+
+				var gridHelper = new THREE.GridHelper( size, step );
+				gridHelper.name = "ignore";
+				scene.add( gridHelper );
+
+
+				// visual raycast
+				pointer = new THREE.Mesh(
+					new THREE.BoxGeometry(.002,.002,len),
+					new THREE.MeshBasicMaterial({color: 0x00BCD4})
+				);
+				pointer.name = "ignore";
+				pointer.position.setZ(-len/2)
+				controller1.add(pointer);
+
+				// Object menu
+				menu = new THREE.Object3D();
+				menu.name = "ignore";
+				background  = new THREE.Mesh(
+					new THREE.BoxGeometry(.2,.002,.2),
+					new THREE.MeshBasicMaterial({color: 0x666666})
+				);
+				background.position.setY(.03);
+				background.name = "ignore";
+				menu.add(background);
+
+				cube = new THREE.Mesh(
+					new THREE.BoxGeometry(.02,.02,.02),
+					new THREE.MeshLambertMaterial({color: 0x999999})
+				);
+				cube.position.set(-.06, .06, -.06);
+				cube.name = "obj_menu_item";
+				cube.isMenuItem = true;
+				menu.add(cube);
+
+				cylinder = new THREE.Mesh( new THREE.CylinderGeometry(.015,.015,.02), new THREE.MeshLambertMaterial( { color: 0x999999 } ) );
+				cylinder.position.set(-.06, .06, .04);
+				cylinder.isMenuItem = true;
+				cylinder.name = "obj_menu_item";
+				menu.add(cylinder);
+
+				sphere = new THREE.Mesh( new THREE.SphereGeometry(.01, 8, 8), new THREE.MeshLambertMaterial( { color: 0x999999 } ) );
+				sphere.position.set(0, .06, 0);
+				sphere.isMenuItem = true;
+				sphere.name = "obj_menu_item";
+				menu.add(sphere);
+
+				lightMenu = new THREE.Group();
+				lightMenu.name = "obj_menu_item";
+				cube2 = new THREE.Mesh(
+					new THREE.BoxGeometry(.02,.02,.02),
+					new THREE.MeshBasicMaterial({color: 0x999999, wireframe: true})
+				);
+
+				light = new THREE.PointLight(0xffffff, 1, 100);
+				light.name = "obj_menu_item";
+				cube2.name = "obj_menu_item";
+				lightMenu.add(cube2);
+				lightMenu.add(light);
+				lightMenu.position.set(.06, .06, 0);
+				menu.add(lightMenu);
+
+
+				controller2.add(menu);
+
+				//controller1.add(selector);
+
+/*
+				var length = 100;
+				var hex = 0xffff00;
+
+				arrowHelper = new THREE.ArrowHelper( controller1.forward(), controller1.position, length, hex );
+				scene.add( arrowHelper );
+				*/
 				effect = new THREE.VREffect( renderer );
-
 				if ( WEBVR.isAvailable() === true ) {
-
 					document.body.appendChild( WEBVR.getButton( effect ) );
-
 				}
-
 				//
-
 				window.addEventListener( 'resize', onWindowResize, false );
-
 			}
 
 			function onWindowResize() {
-
 				camera.aspect = window.innerWidth / window.innerHeight;
 				camera.updateProjectionMatrix();
-
 				effect.setSize( window.innerWidth, window.innerHeight );
-
 			}
 
 			//
 
 			function animate() {
-
-				effect.requestAnimationFrame( animate );
+				requestAnimationFrame( animate );
 				render();
-
 			}
+
+			/**
+			 * TODO: scale left right
+			 * pull push up down
+			*/
+
+			/**
+			 * Clones an object from the menu
+			 * @param {object:Mesh||Object3D} object
+			 * @returns {object} n the cloned object
+			 */
+			function cloneObjectFromMenu(object) {
+				var n = object.clone();
+				console.log(n);
+				n.name = "";
+				if (n.children)
+					for (var i = 0; i < n.children.length; ++i)
+						n.children[i].name = "";
+				n.applyMatrix(object.matrixWorld);
+				var vector = new THREE.Vector3();
+				vector.setFromMatrixPosition(object.matrixWorld);
+				n.position.set(vector.x, vector.y, vector.z);
+				n.updateMatrixWorld();
+				scene.add(n);
+				THREE.SceneUtils.detach(n, n.parent, scene);
+				THREE.SceneUtils.attach(n, scene, controller1);
+				return n;
+			}
+
+			// button events
+			var axisPrev = 0;
+			var handleButtonTouched = function(e) {
+				switch(e.detail.controller_id) {
+					case controller1.id:
+						switch (e.detail.button_id) {
+							case controller1.BUTTONS.TRACKPAD:
+								if (controller1.buttons[controller1.getIdForMapping(controller1.MAPPINGS.TRIGGER)].isHeld) {
+									var getAxes = setTimeout(function() {
+										if (controller1.heldObject) {
+											var axes = controller1.trackpad.getAxes();
+											var s = controller1.heldObject.scale.x
+											var n = 0;
+											if (axes.y > 0) {
+												n = s+.1;
+											} else {
+												n = s-.1;
+											}
+											if (n < .1) {
+												n = .1;
+											}
+											controller1.heldObject.scale.set(n, n, n);
+											/*
+											var previous = controller1.heldObject.scale.x
+											var axes = controller1.trackpad.getAxes();
+											var axesDelta;
+											var scalar;
+											if (axisPrev < axes.y) {
+												axesDelta = axisPrev + axes.y
+											} else {
+												axesDelta = axisPrev - axes.y
+											}
+											axisPrev = axes.y;
+											*/
+											/*
+											console.log('Axis Delta: ', axesDelta)
+											axisPrev = axes.y;
+											if (previous > axesDelta) {
+												delta = previous - (axesDelta * CONST);
+											} else {
+												delta = previous + (axesDelta * CONST);
+											}
+											console.log('DELTA:', delta)
+											if (delta <= 0.1) {
+												delta = 0.1
+											}
+											*/
+											/*
+											if (axesDelta > 0) {
+												scalar = previous + (previous * .1)
+											} else {
+												scalar = previous - (previous * .1)
+											}
+											if (scalar <= 0.1) {
+												scalar = 0.1
+											}
+											console.log('scalar: ', scalar);
+											console.log('axesDelta', axesDelta)
+											controller1.heldObject.scale.set(scalar, scalar, scalar);
+											*/
+										}
+									}, 100);
+									var handleTrackpadUntouched = function(e) {
+										if (e.detail.controller_id === controller1.id) {
+											if (controller1.getMappingForButton(e.detail.button_id) === controller1.MAPPINGS.TRACKPAD) {
+												clearTimeout(getAxes);
+												window.removeEventListener('gamepadButtonUntouched', handleTrackpadUntouched);
+											}
+										}
+									}
+									window.addEventListener('gamepadButtonUntouched', handleTrackpadUntouched);
+								}
+								break;
+						}
+						break;
+					case controller2.id:
+
+						break;
+				}
+			};
+
+			window.addEventListener('gamepadButtonTouched', handleButtonTouched);
+
+			var handleButtonClicked = function(e) {
+				console.log('Button Event: ', e);
+				switch (e.detail.controller_id) {
+					case controller1.id:
+						switch (e.detail.button_id) {
+							case controller1.BUTTONS.TRIGGER:
+								var cast = new THREE.Raycaster();
+								cast.set(controller1.getPosition(), controller1.forward());
+								var intersects = cast.intersectObjects(scene.children, true);
+								for (var i = 0; i < intersects.length; i++) {
+									var curr = intersects[i];
+									if (curr && curr.object.name !== "ignore") {
+										if (curr.object.name === "obj_menu_item") {
+											if (curr.object.parent.name === "obj_menu_item") // fucking hack fuck -conner
+												controller1.heldObject = cloneObjectFromMenu(curr.object.parent);
+											else
+												controller1.heldObject = cloneObjectFromMenu(curr.object);
+											break;
+										}
+										if (curr.object.parent != scene)
+											controller1.heldObject = curr.object.parent;
+										else
+											controller1.heldObject = curr.object;
+										THREE.SceneUtils.detach(controller1.heldObject, controller1.heldObject.parent, scene);
+										THREE.SceneUtils.attach(controller1.heldObject, scene, controller1);
+										break;
+									}
+
+
+								}
+								break;
+							case 2:
+								break;
+							case 3:
+								break;
+						}
+						break;
+					case controller2.id:
+						switch (e.detail.button_id) {
+							case controller2.BUTTONS.TRIGGER:
+								break;
+							case 2:
+								break;
+							case controller2.BUTTONS.MENU:
+								menu.visible = !menu.visible;
+								break;
+						}
+						break;
+				}
+			};
+
+			window.addEventListener('gamepadButtonPressed', handleButtonClicked);
+
+			var handleButtonReleased = function(e) {
+				console.log('Button released: ', e);
+				switch (e.detail.controller_id) {
+				case controller1.id:
+					if (controller1.heldObject) {
+						THREE.SceneUtils.detach(controller1.heldObject, controller1, scene);
+						THREE.SceneUtils.attach(controller1.heldObject, scene, scene);
+						controller1.heldObject = undefined;
+					}
+
+				case controller2.id:
+				}
+
+			};
+
+			window.addEventListener('gamepadButtonReleased', handleButtonReleased);
+
+			var arrowHelper;
 
 			function render() {
 
-				var delta = clock.getDelta() * 60;
-
 				controls.update();
+
+				// todo make function
+				var cast = new THREE.Raycaster();
+				cast.set(controller1.getPosition(), controller1.forward());
+				if (arrowHelper)
+					scene.remove(arrowHelper);
+				arrowHelper = new THREE.ArrowHelper( controller1.forward(), controller1.getPosition(), 100, 0xff0000 );
+				//scene.add(arrowHelper);
+				var intersects = cast.intersectObjects(scene.children, true);
+				for (var i = 0; i < intersects.length; i++) {
+					if (intersects[i] && intersects[i].object.interactable) {
+						controller1.remove(pointer);
+						pointer = new THREE.Mesh( new THREE.BoxGeometry(.002,.002,intersects[0].distance), new THREE.MeshBasicMaterial( { color: 0x00BCD4 } ) );
+						pointer.position.setZ(-intersects[0].distance/2)
+						controller1.add(pointer);
+						break;
+					}
+				}
 
 				for ( var i = 0; i < room.children.length; i ++ ) {
 
@@ -261,7 +555,7 @@
 
 					}
 
-					cube.rotation.x += 0.01 * delta;
+					cube.rotation.x += 0.01;
 
 				}
 
@@ -272,3 +566,4 @@
 		</script>
 	</body>
 </html>
+
